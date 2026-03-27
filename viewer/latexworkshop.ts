@@ -64,6 +64,9 @@ async function initialization() {
             maxCanvasPixels: -1,
             maxCanvasDim: -1,
             enableDetailCanvas: false,
+            // Render immediately on zoom instead of CSS-stretching for the default 400ms delay,
+            // which causes visibly poor resolution during zoom operations.
+            defaultZoomDelay: 0,
             ...color
         }
         PDFViewerApplicationOptions.setAll(options)
