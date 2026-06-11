@@ -1488,6 +1488,15 @@
           ],
           "markdownDescription": "Files to ignore from the watching mechanism, i.e., no intellisense or build-on-file-change. However, document structure/outline and build-on-save won't be affected (For build-on-save configuration, see #latex-workshop.autoBuild.onSave.files.ignore#). This property must be an array of glob patterns. The patterns are matched against the absolute file path. To ignore everything inside the `texmf` tree, `**/texmf/**` can be used. "
         },
+        "latex-workshop.latex.watch.files.include": {
+          "scope": "resource",
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "markdownDescription": "Extra files to watch in addition to those discovered from the LaTeX source. Some files belong to a project without being referenced from the `.tex` source or recorded in the `.fls` file, e.g. a `.yml` configuration consumed only by an external compiler. Such files are never watched, so changing them does not trigger an auto build. List glob patterns here (e.g. `[\"**/*.yml\"]`) to watch the matching files: when `#latex-workshop.latex.autoBuild.run#` is `onFileChange`, a change to any of them triggers an auto build. Patterns are evaluated relative to the root file's directory and each workspace folder when the root file is (re)selected. The #latex-workshop.latex.watch.files.ignore# patterns still apply."
+        },
         "latex-workshop.latex.autoBuild.run": {
           "scope": "resource",
           "type": "string",

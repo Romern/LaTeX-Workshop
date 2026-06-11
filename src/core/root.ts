@@ -75,6 +75,8 @@ async function find(): Promise<undefined> {
                 // It happens a lot with subfiles, https://tex.stackexchange.com/questions/289450/path-of-figures-in-different-directories-with-subfile-latex
                 await lw.cache.loadFlsFile(rootFilePath)
             })
+            // Watch extra dependency files declared via `latex.watch.files.include`.
+            lw.cache.watchIncludedFiles(rootFilePath)
         }
         lw.event.fire(lw.event.RootFileSearched)
         return

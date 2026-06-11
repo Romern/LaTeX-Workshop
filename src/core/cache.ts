@@ -2,6 +2,7 @@ import * as vscode from 'vscode'
 import os from 'os'
 import * as path from 'path'
 import micromatch from 'micromatch'
+import { glob } from 'glob'
 import { performance } from 'perf_hooks'
 
 import { lw } from '../lw'
@@ -38,6 +39,7 @@ export const cache = {
     getIncludedBib,
     getIncludedGlossaryBib,
     getFlsChildren,
+    watchIncludedFiles,
     wait,
     reset,
     refreshCache,
@@ -119,6 +121,51 @@ function add(filePath: string) {
     if (!lw.watcher.src.has(uri)) {
         logger.log(`Adding ${filePath} .`)
         lw.watcher.src.add(uri)
+    }
+}
+
+/**
+ * Watches extra files declared via the `latex.watch.files.include`
+ * configuration.
+ *
+ * Some files belong to a project without being referenced from the LaTeX source
+ * or recorded in the `.fls` file, e.g. a `.yml` configuration consumed only by
+ * an external compiler. Such files are never discovered by the parsing or `.fls`
+ * mechanisms, so changing them does not trigger an auto build. This function
+ * resolves the configured glob patterns relative to the root file's directory
+ * and each workspace folder, then adds every existing match to the source
+ * watcher so that a change triggers an auto build. The matches are still subject
+ * to the `latex.watch.files.ignore` patterns.
+ *
+ * @param {string} rootFile - The path to the root file whose project the
+ * included files belong to.
+ */
+function watchIncludedFiles(rootFile: string) {
+    const configuration = vscode.workspace.getConfiguration('latex-workshop', lw.file.toUri(rootFile))
+    const includeGlobs = configuration.get('latex.watch.files.include', []) as string[]
+    if (includeGlobs.length === 0) {
+        return
+    }
+    const baseDirs = new Set<string>([path.dirname(rootFile)])
+    vscode.workspace.workspaceFolders?.forEach(folder => baseDirs.add(folder.uri.fsPath))
+    for (const baseDir of baseDirs) {
+        for (const includeGlob of includeGlobs) {
+            let matches: string[] = []
+            try {
+                matches = glob.sync(includeGlob, { cwd: baseDir, absolute: true, dot: true, nodir: true })
+            } catch (error) {
+                logger.log(`Error globbing included files with ${includeGlob} in ${baseDir} : ${error} .`)
+                continue
+            }
+            for (const match of matches) {
+                const filePath = path.normalize(match)
+                if (isExcluded(filePath) || lw.watcher.src.has(lw.file.toUri(filePath))) {
+                    continue
+                }
+                logger.log(`Included ${filePath} matched by ${includeGlob} from ${baseDir} .`)
+                add(filePath)
+            }
+        }
     }
 }
 

@@ -126,6 +126,48 @@ describe(path.basename(__filename).split('.')[0] + ':', () => {
         })
     })
 
+    describe('lw.cache.watchIncludedFiles', () => {
+        const rootPath = get.path(fixture, 'watch_include', 'main.tex')
+        const dataPath = get.path(fixture, 'watch_include', 'data.yml')
+        const extraPath = get.path(fixture, 'watch_include', 'extra.yml')
+        const nestedPath = get.path(fixture, 'watch_include', 'sub', 'nested.yml')
+
+        beforeEach(() => {
+            set.config('latex.watch.files.ignore', [])
+        })
+
+        it('should not watch anything if the include list is empty', () => {
+            set.config('latex.watch.files.include', [])
+
+            lw.cache.watchIncludedFiles(rootPath)
+            assert.ok(!lw.watcher.src.has(vscode.Uri.file(dataPath)))
+        })
+
+        it('should watch files matching an include glob', () => {
+            set.config('latex.watch.files.include', ['*.yml'])
+
+            lw.cache.watchIncludedFiles(rootPath)
+            assert.ok(lw.watcher.src.has(vscode.Uri.file(dataPath)))
+            assert.ok(lw.watcher.src.has(vscode.Uri.file(extraPath)))
+        })
+
+        it('should watch files matching a recursive include glob', () => {
+            set.config('latex.watch.files.include', ['**/*.yml'])
+
+            lw.cache.watchIncludedFiles(rootPath)
+            assert.ok(lw.watcher.src.has(vscode.Uri.file(nestedPath)))
+        })
+
+        it('should not watch an included file that is also ignored', () => {
+            set.config('latex.watch.files.include', ['*.yml'])
+            set.config('latex.watch.files.ignore', ['**/extra.yml'])
+
+            lw.cache.watchIncludedFiles(rootPath)
+            assert.ok(lw.watcher.src.has(vscode.Uri.file(dataPath)))
+            assert.ok(!lw.watcher.src.has(vscode.Uri.file(extraPath)))
+        })
+    })
+
     describe('lw.cache.get', () => {
         it('should get the cache for a TeX file if exist', async () => {
             const texPath = get.path(fixture, 'main.tex')
