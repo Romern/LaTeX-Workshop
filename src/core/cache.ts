@@ -253,7 +253,8 @@ async function refreshCache(filePath: string, rootPath?: string): Promise<Promis
         children: [],
         bibfiles: new Set(),
         glossarybibfiles: new Set(),
-        external: {}}
+        external: {},
+        dependencies: new Set()}
     caches.set(filePath, fileCache)
     rootPath = rootPath || lw.root.file.path
     await updateChildren(fileCache, rootPath)
@@ -356,7 +357,53 @@ async function updateChildren(fileCache: FileCache, rootPath: string | undefined
     rootPath = rootPath || fileCache.filePath
     await updateChildrenInput(fileCache, rootPath)
     await updateChildrenXr(fileCache, rootPath)
+    await updateDependency(fileCache, rootPath)
     logger.log(`Updated inputs of ${fileCache.filePath} .`)
+}
+
+/**
+ * Updates the extra dependency files declared via `% !TeX dependency = ...`
+ * magic comments.
+ *
+ * Some files belong to a project without being referenced from the LaTeX source
+ * itself, e.g. a `.yml` configuration consumed only by an external compiler.
+ * Such files are neither found by parsing `\input`-like macros nor recorded in
+ * the `.fls` file, so they would never be watched. This function lets a file
+ * declare them explicitly with a magic comment, e.g.
+ * `% !TeX dependency = config.yml, data/extra.yml`. Each resolved path is added
+ * to the source watcher so that a change triggers an auto build, but the file
+ * is not parsed as LaTeX. Parsing is gated by the `latex.build.enableMagicComments`
+ * configuration, like the other magic comments.
+ *
+ * @param {FileCache} fileCache - The file cache object containing the raw
+ * content to be scanned for dependency magic comments.
+ * @param {string} rootPath - The root path used for resolving relative
+ * dependency paths.
+ */
+async function updateDependency(fileCache: FileCache, rootPath: string) {
+    const configuration = vscode.workspace.getConfiguration('latex-workshop', lw.file.toUri(rootPath))
+    if (!configuration.get('latex.build.enableMagicComments')) {
+        return
+    }
+    const dependencyReg = /^\s*%\s*!\s*T[Ee]X\s+dependency\s*=\s*(.+)$/gm
+    const texDirs = configuration.get('latex.texDirs') as string[]
+    let result: RegExpExecArray | null
+    while ((result = dependencyReg.exec(fileCache.content)) !== null) {
+        const dependencies = result[1].split(',').map(dependency => dependency.trim()).filter(dependency => dependency.length > 0)
+        for (const dependency of dependencies) {
+            const dependencyPath = await utils.resolveFile([path.dirname(fileCache.filePath), path.dirname(rootPath), ...texDirs], dependency)
+            if (!dependencyPath || !await lw.file.exists(dependencyPath)) {
+                logger.log(`Failed resolving dependency ${dependency} from ${fileCache.filePath} . Tried ${dependencyPath} .`)
+                continue
+            }
+            fileCache.dependencies.add(dependencyPath)
+            logger.log(`Dependency ${dependencyPath} from ${fileCache.filePath} .`)
+            if (lw.watcher.src.has(lw.file.toUri(dependencyPath))) {
+                continue
+            }
+            add(dependencyPath)
+        }
+    }
 }
 
 /**

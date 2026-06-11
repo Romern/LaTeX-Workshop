@@ -604,6 +604,71 @@ describe(path.basename(__filename).split('.')[0] + ':', () => {
         })
     })
 
+    describe('lw.cache.updateDependency', () => {
+        it('should not add any dependency if there is nothing', async () => {
+            const texPath = get.path(fixture, 'main.tex')
+
+            lw.cache.add(texPath)
+            await lw.cache.refreshCache(texPath)
+            const fileCache = lw.cache.get(texPath)
+            assert.ok(fileCache)
+            assert.strictEqual(fileCache.dependencies.size, 0)
+        })
+
+        it('should not add a dependency if the file does not exist', async () => {
+            const toParse = get.path(fixture, 'update_dependency', 'file_not_exist.tex')
+
+            lw.cache.add(toParse)
+            await lw.cache.refreshCache(toParse)
+            const fileCache = lw.cache.get(toParse)
+            assert.ok(fileCache)
+            assert.strictEqual(fileCache.dependencies.size, 0)
+        })
+
+        it('should add a dependency declared via a magic comment', async () => {
+            const ymlPath = get.path(fixture, 'update_dependency', 'data.yml')
+            const toParse = get.path(fixture, 'update_dependency', 'dependency.tex')
+
+            lw.cache.add(toParse)
+            await lw.cache.refreshCache(toParse)
+            const fileCache = lw.cache.get(toParse)
+            assert.ok(fileCache)
+            assert.listStrictEqual(Array.from(fileCache.dependencies), [ymlPath])
+        })
+
+        it('should watch the dependency', async () => {
+            const ymlPath = get.path(fixture, 'update_dependency', 'data.yml')
+            const toParse = get.path(fixture, 'update_dependency', 'dependency.tex')
+
+            lw.cache.add(toParse)
+            await lw.cache.refreshCache(toParse)
+            assert.ok(lw.watcher.src.has(vscode.Uri.file(ymlPath)))
+        })
+
+        it('should add multiple comma-separated dependencies', async () => {
+            const ymlPath = get.path(fixture, 'update_dependency', 'data.yml')
+            const extraPath = get.path(fixture, 'update_dependency', 'sub', 'extra.yml')
+            const toParse = get.path(fixture, 'update_dependency', 'multi.tex')
+
+            lw.cache.add(toParse)
+            await lw.cache.refreshCache(toParse)
+            const fileCache = lw.cache.get(toParse)
+            assert.ok(fileCache)
+            assert.listStrictEqual(Array.from(fileCache.dependencies), [ymlPath, extraPath])
+        })
+
+        it('should not add a dependency when magic comments are disabled', async () => {
+            set.config('latex.build.enableMagicComments', false)
+            const toParse = get.path(fixture, 'update_dependency', 'dependency.tex')
+
+            lw.cache.add(toParse)
+            await lw.cache.refreshCache(toParse)
+            const fileCache = lw.cache.get(toParse)
+            assert.ok(fileCache)
+            assert.strictEqual(fileCache.dependencies.size, 0)
+        })
+    })
+
     describe('lw.cache.updateBibfiles', () => {
         it('should not add any bib files if there is nothing', async () => {
             const texPath = get.path(fixture, 'main.tex')

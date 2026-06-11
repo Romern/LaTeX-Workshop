@@ -1291,7 +1291,7 @@
           "scope": "resource",
           "type": "boolean",
           "default": true,
-          "markdownDescription": "Enable magic comments if present."
+          "markdownDescription": "Enable magic comments if present. In addition to `% !TeX root`, `% !TeX program`, `% !BIB program`, `% !TeX options` and `% !LW recipe`, the `% !TeX dependency = file1, file2` comment registers extra files (e.g. a `.yml` consumed only by an external compiler) as build dependencies so that changing them triggers an auto build, even though they are not referenced from the LaTeX source."
         },
         "latex-workshop.latex.build.fromFolder": {
           "scope": "resource",
